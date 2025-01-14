@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Controller Input Viewer</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            margin: 20px;
+        }
+
+        .controller-info {
+            margin-bottom: 20px;
+        }
+
+        .buttons-container {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            margin-bottom: 20px;
+            width: 50vw;
+            margin: auto;
+        }
+
+        .button {
+            width: 65px;
+            height: 65px;
+            padding: 5px;
+            margin: 5px;
+            line-height: 65px;
+            background-color: #ddd;
+            border: 2px solid #aaa;
+            border-radius: 5px;
+            display: inline-block;
+            text-align: center;
+            font-weight: bold;
+            user-select: none;
+        }
+
+        .button.pressed {
+            background-color: #4CAF50;
+            color: white;
+        }
+
+        .joystick {
+            display: inline-block;
+            width: 120px;
+            height: 120px;
+            margin: 10px;
+            border: 2px solid #aaa;
+            border-radius: 50%;
+            position: relative;
+        }
+
+        .joystick-dot {
+            width: 20px;
+            height: 20px;
+            background-color: #4CAF50;
+            border-radius: 50%;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+        }
+
+        .vibration-test {
+            margin-top: 20px;
+        }
+
+        .vibration-button {
+            padding: 10px 20px;
+            font-size: 16px;
+            background-color: #007BFF;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+
+        .vibration-button:hover {
+            background-color: #0056b3;
+        }
+
+        .note {
+            margin-top: 10px;
+            font-size: 14px;
+            color: #555;
+        }
+
+        .axis-values {
+            margin-top: 20px;
+        }
+
+        .axis-value {
+            margin: 5px;
+            font-size: 16px;
+        }
+    </style>
+</head>
+<body>
+    <div class="controller-info">
+        <p id="controller-name">No controller connected - Try pressing some buttons</p>
+    </div>
+    <div class="buttons-container" id="buttons-container"></div>
+    <div>
+        <div class="joystick">
+            <div class="joystick-dot" id="joystick-left"></div>
+        </div>
+        <div class="joystick">
+            <div class="joystick-dot" id="joystick-right"></div>
+        </div>
+    </div>
+    <div class="axis-values">
+        <div class="axis-value" id="left-joystick-values">Left Joystick: X=0, Y=0</div>
+        <div class="axis-value" id="right-joystick-values">Right Joystick: X=0, Y=0</div>
+        <div class="axis-value" id="trigger-values">Triggers: LT=0, RT=0</div>
+    </div>
+    <div class="vibration-test">
+        <button class="vibration-button" id="vibration-button">Test Vibration</button>
+        <p class="note">Press <code>LT</code> and <code>RT</code> to test vibration.</p>
+    </div>
+
+    <script>
+        const buttonLabels = [
+            "A", "B", "X", "Y", "LB", "RB", "LT", "RT", "Back", "Start", "LS", "RS", "D-Up", "D-Down", "D-Left", "D-Right"
+        ];
+
+        let gamepadIndex = null;
+        let lt = false, rt = false;
+        function updateControllerState() {
+            const gamepad = navigator.getGamepads()[gamepadIndex];
+
+            if (gamepad) {
+                const buttonsContainer = document.getElementById('buttons-container');
+                gamepad.buttons.forEach((button, index) => {
+                    const buttonElement = document.getElementById(`button-${index}`);
+                    if (button.pressed) {
+                        buttonElement.classList.add('pressed');
+
+                        if (index === 6) {
+                            lt = true;
+                        }
+                        if (index === 7) {
+                            rt = true;
+                        }
+
+                        if ((lt && rt) && gamepad.vibrationActuator) {
+                            gamepad.vibrationActuator.playEffect('dual-rumble', {
+                                startDelay: 0,
+                                duration: 100,
+                                weakMagnitude: 0.5,
+                                strongMagnitude: 1.0
+                            });
+                        }
+                    } else {
+                        if (index === 6) {
+                            lt = false;
+                        }
+                        if (index === 7) {
+                            rt = false;
+                        }
+                        buttonElement.classList.remove('pressed');
+                    }
+                });
+
+                const [leftX, leftY, rightX, rightY] = [
+                    gamepad.axes[0],
+                    gamepad.axes[1],
+                    gamepad.axes[2],
+                    gamepad.axes[3]
+                ];
+
+                const joystickLeft = document.getElementById('joystick-left');
+                joystickLeft.style.transform = `translate(calc(-50% + ${leftX * 50}px), calc(-50% + ${leftY * 50}px))`;
+
+                const joystickRight = document.getElementById('joystick-right');
+                joystickRight.style.transform = `translate(calc(-50% + ${rightX * 50}px), calc(-50% + ${rightY * 50}px))`;
+
+                document.getElementById('left-joystick-values').textContent = `Left Joystick: X=${leftX.toFixed(2)}, Y=${leftY.toFixed(2)}`;
+                document.getElementById('right-joystick-values').textContent = `Right Joystick: X=${rightX.toFixed(2)}, Y=${rightY.toFixed(2)}`;
+                document.getElementById('trigger-values').textContent = `Triggers: LT=${gamepad.buttons[6].value.toFixed(2)}, RT=${gamepad.buttons[7].value.toFixed(2)}`;
+            }
+
+            requestAnimationFrame(updateControllerState);
+        }
+
+        window.addEventListener('gamepadconnected', (event) => {
+            gamepadIndex = event.gamepad.index;
+            document.getElementById('controller-name').textContent = `Connected: ${event.gamepad.id}`;
+
+            const buttonsContainer = document.getElementById('buttons-container');
+            buttonsContainer.innerHTML = '';
+
+            event.gamepad.buttons.forEach((_, index) => {
+                const buttonElement = document.createElement('div');
+                buttonElement.classList.add('button');
+                buttonElement.id = `button-${index}`;
+                buttonElement.textContent = buttonLabels[index] || index;
+                buttonsContainer.appendChild(buttonElement);
+            });
+
+            updateControllerState();
+        });
+
+        window.addEventListener('gamepaddisconnected', () => {
+            gamepadIndex = null;
+            document.getElementById('controller-name').textContent = 'No controller connected';
+            document.getElementById('buttons-container').innerHTML = '';
+        });
+
+        document.getElementById('vibration-button').addEventListener('click', () => {
+            const gamepad = navigator.getGamepads()[gamepadIndex];
+            if (gamepad && gamepad.vibrationActuator) {
+                gamepad.vibrationActuator.playEffect('dual-rumble', {
+                    startDelay: 0,
+                    duration: 500,
+                    weakMagnitude: 0.5,
+                    strongMagnitude: 1.0
+                });
+            } else {
+                alert('Vibration not supported on this controller');
+            }
+        });
+    </script>
+</body>
+</html>
